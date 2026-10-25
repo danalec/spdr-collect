@@ -64,6 +64,12 @@ spdr-collect submit dump.bin
 That needs the [`gh`](https://cli.github.com) CLI, which already holds your
 GitHub credentials. Without it, the tool prints the steps to do it by hand.
 
+A pull request is the default because it is the only channel that can carry a
+fixture: the file is binary, and only a change to the repository can land it.
+`--as issue` opens an issue instead, which is useful for discussion and for
+the people who would rather attach the file by hand; the maintainer decides
+what happens to it from there.
+
 ## What the report says
 
 The report is the record to paste into the project's `docs/validated-against.md`:
