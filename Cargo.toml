@@ -1,0 +1,39 @@
+[package]
+name = "spdr-collect"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+description = "Intake tool for DDR5 SPD dumps: ingest, redact, validate, and package a fixture for the spdr project."
+repository = "https://github.com/danalec/spdr-collect"
+readme = "README.md"
+keywords = ["spd", "ddr5", "jedec", "memory"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+# The library this tool exists to serve. The version is what a published build
+# and a fresh clone both resolve, so the repository stands on its own.
+spdr = { version = "0.1.1", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[profile.release]
+strip = true
+
+# The same curated lint set the `spdr` project denies, so a change that
+# satisfies one satisfies the other. `unsafe_code` is forbidden for the same
+# reason it is there: this tool reads untrusted input and must not be able to
+# do anything unsafe with it.
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "deny"
+cast_possible_truncation = "deny"
+doc_markdown = "deny"
+missing_errors_doc = "deny"
+needless_pass_by_value = "deny"
+ref_option = "deny"
+trivially_copy_pass_by_ref = "deny"

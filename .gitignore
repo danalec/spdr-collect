@@ -1,0 +1,5 @@
+/target
+
+# Local development override: points the `spdr` dependency at a sibling
+# checkout. See `.cargo/config.toml`.
+/.cargo/config.toml
