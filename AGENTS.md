@@ -14,17 +14,23 @@ Intake tool for the [`spdr`](https://github.com/The-Open-Memory-Initiative-OMI/s
 ## Project layout
 
 - `src/ingest.rs` · reading a raw image, a hex dump (`hexdump -C`, `xxd`, `od`, `i2cdump`), or a bare hex string
-- `src/sanitize.rs` · the redaction map and the placeholders
+- `src/sanitize.rs` · the redaction map, the placeholders, and the check that the map still matches the decoder
 - `src/report.rs` · the provenance report, markdown and JSON
-- `src/main.rs` · the two subcommands and the exit-code contract
+- `src/submit.rs` · sending a fixture to the upstream repository through the `gh` CLI
+- `src/main.rs` · the three subcommands and the exit-code contract
+- `docs/collect.html` · the browser page: the same ingest, redaction and checksum, in one self-contained file
 - `tests/cli.rs` · integration tests against the fixture in `tests/fixtures/`
 - `.github/workflows/ci.yml` · fmt → clippy → test
+- `.github/workflows/release.yml` · prebuilt binaries for each platform, on a tag
+- `.github/workflows/pages.yml` · the browser page, published
 
 ## The invariant that must not break
 
 **Every identifying field lives outside the range the base configuration CRC covers.** The CRC covers bytes `0..=509`; the manufacturing information block, which holds the serial number (517..=520) and the part number (521..=550), starts at byte 512. Redacting therefore cannot disturb the CRC, and a sanitised dump stays a faithful image of the module instead of a reconstruction.
 
 If a field is ever added to the redaction map, check that it is still outside `0..=509`. A field inside that range would need the CRC recomputed, which would break the guarantee the whole tool rests on.
+
+The offsets live in this tool while the fields live in `spdr`, which does not export them. `sanitize::check_offsets` compares what the library decoded against what the offsets hold, and the tool refuses to write anything if they disagree. The browser page cannot call Rust, so it carries its own copy of the offsets and of the encodings it decodes; a test parses the page and compares it against the library, so neither copy can drift apart silently.
 
 ## Code style
 

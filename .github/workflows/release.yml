@@ -1,0 +1,94 @@
+name: Release
+
+# Tag a version and push the tag: the binaries for each platform are built and
+# attached to the release, so nobody needs Rust installed to use the tool.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: ""
+            archive: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            ext: ""
+            archive: tar.gz
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            ext: ""
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: ".exe"
+            archive: zip
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package
+          cp "target/${{ matrix.target }}/release/spdr-collect${{ matrix.ext }}" package/
+          cp README.md package/
+          cd package
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip -r "../spdr-collect-${{ matrix.target }}.zip" .
+          else
+            tar -czf "../spdr-collect-${{ matrix.target }}.tar.gz" .
+          fi
+          cd ..
+          rm -rf package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spdr-collect-${{ matrix.target }}
+          path: spdr-collect-${{ matrix.target }}.*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          body: |
+            The intake tool for the `spdr` project, prebuilt for each platform.
+
+            If you would rather not install anything, the
+            [browser page](https://danalec.github.io/spdr-collect/) does the same
+            job in the browser, with nothing installed and nothing leaving your
+            computer.

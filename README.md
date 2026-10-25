@@ -16,14 +16,31 @@ ones a contributor actually gets stuck on:
   without touching a single byte the CRC covers, so the sanitised dump is
   still provably a faithful image of the module.
 
-## Install
+There are three ways to use it, in order of how little they ask of you.
+
+## In the browser, with nothing installed
+
+**[Open the page](https://danalec.github.io/spdr-collect/)** — or download it
+and open the file, which works offline and keeps your dump on your machine.
+
+Drag your dump onto the page. It reads the file, removes the serial number,
+checks that the checksum still matches, and hands you two things: the
+sanitised file, and the provenance text to paste into the pull request. There
+is no server and no network request: the page is one self-contained HTML file
+that does the work in your browser.
+
+The page also explains how to get a dump in the first place, per operating
+system.
+
+## As a command
 
 ```sh
 cargo install --path .          # from a checkout
-cargo install spdr-collect      # once published
 ```
 
-## Use
+Or download a prebuilt binary from the
+[releases page](https://github.com/danalec/spdr-collect/releases) if you would
+rather not install Rust.
 
 Validate a dump and see what it holds:
 
@@ -37,13 +54,24 @@ Redact it and write the fixture:
 spdr-collect sanitize dump.bin -o fixtures/my-module.spd
 ```
 
-The report it prints is the record to paste into the project's
-`docs/validated-against.md`:
+Send it straight to the project, which is the same thing with the fork, the
+branch, the commit and the pull request done for you:
+
+```sh
+spdr-collect submit dump.bin
+```
+
+That needs the [`gh`](https://cli.github.com) CLI, which already holds your
+GitHub credentials. Without it, the tool prints the steps to do it by hand.
+
+## What the report says
+
+The report is the record to paste into the project's `docs/validated-against.md`:
 
 ```markdown
 ### Team Group Inc. UD5-6000 · UDIMM
 
-- **Fixture** · `fixtures/my-module.spd` · 1024 bytes · sha256 `1b0d7373…`
+- **Fixture** · `spdr/tests/fixtures/team-group-inc-ud5-6000_99999999.spd` · 1024 bytes · sha256 `1b0d7373…`
 - **Source** · `dump.bin` · raw binary · 1024 bytes · sha256 `cecfa75e…`
 - **Sanitised** · module serial number
 - **Base CRC** · computed `0x8021` · stored `0x8021` · match
@@ -78,6 +106,12 @@ The serial number is replaced with `99999999`, the same placeholder the
 project's public sample set already uses. The part number is kept by default,
 because a SKU is public product data and keeping it makes the contribution
 worth more; `--redact serial-and-part-number` removes it too.
+
+The offsets this tool redacts live in the tool, while the fields live in
+`spdr`, which does not export them. Before anything is written, the tool
+compares what the library decoded against what those offsets hold, so a field
+that moved is a loud failure rather than a redaction that quietly stopped
+covering it.
 
 ## Getting a dump in the first place
 
@@ -128,6 +162,10 @@ The tests run against a copy of the fixture the `spdr` project validates
 against, kept in `tests/fixtures/`, so they run in CI without the sibling
 checkout. Its SHA-256 is the value the upstream project already records, which
 is the independent check that the provenance hash this tool prints is right.
+
+The browser page carries its own copy of the offsets and of the encodings it
+decodes, because it cannot call Rust. A test parses the page and compares it
+against the library, so the two cannot drift apart silently.
 
 ## Licence
 

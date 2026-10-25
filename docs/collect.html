@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Send your DDR5 SPD dump to the spdr project</title>
+<style>
+  :root {
+    --bg: #fbfbfa;
+    --fg: #1b1b1a;
+    --muted: #5d5d59;
+    --line: #dcdcd6;
+    --card: #ffffff;
+    --ok: #1c6b3c;
+    --ok-bg: #e9f5ee;
+    --warn: #8a5a00;
+    --warn-bg: #fdf3e0;
+    --bad: #a32222;
+    --bad-bg: #fbeceb;
+    --accent: #2b4c8c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #e8e8e4;
+      --muted: #a0a09a;
+      --line: #34363b;
+      --card: #1e2024;
+      --ok: #7fd39c;
+      --ok-bg: #16301f;
+      --warn: #e5bd6a;
+      --warn-bg: #332a13;
+      --bad: #f08f8a;
+      --bad-bg: #351c1c;
+      --accent: #8fb0ee;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0 1rem 4rem;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 46rem; margin: 0 auto; }
+  h1 { font-size: 1.7rem; line-height: 1.25; margin: 2rem 0 .4rem; }
+  h2 { font-size: 1.15rem; margin: 2.2rem 0 .6rem; }
+  p, li { color: var(--fg); }
+  .lede { font-size: 1.05rem; color: var(--muted); margin: 0 0 1.5rem; }
+  .note {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: .8rem 1rem;
+    margin: 1.2rem 0;
+  }
+  .note p { margin: .3rem 0; }
+  #drop {
+    border: 2px dashed var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    padding: 2.2rem 1.2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  #drop.over { border-color: var(--accent); background: var(--accent); color: #fff; }
+  #drop.over p, #drop.over small { color: #fff; }
+  #drop h3 { margin: 0 0 .3rem; font-size: 1.05rem; }
+  #drop p { margin: .2rem 0; color: var(--muted); }
+  #drop small { color: var(--muted); }
+  #file { display: block; margin: 1.1rem auto 0; max-width: 100%; font: inherit; color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { width: 12rem; color: var(--muted); font-weight: 600; }
+  td { font-variant-numeric: tabular-nums; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+  .verdict { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-weight: 600; font-size: .88rem; }
+  .verdict.ok { background: var(--ok-bg); color: var(--ok); }
+  .verdict.warn { background: var(--warn-bg); color: var(--warn); }
+  .verdict.bad { background: var(--bad-bg); color: var(--bad); }
+  button, .button {
+    display: inline-block;
+    font: inherit;
+    font-weight: 600;
+    padding: .55rem 1.1rem;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--fg);
+    cursor: pointer;
+    text-decoration: none;
+  }
+  button:hover, .button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { filter: brightness(1.12); color: #fff; }
+  textarea {
+    width: 100%;
+    min-height: 12rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .85rem;
+    padding: .7rem;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--fg);
+  }
+  ol.steps { padding-left: 1.3rem; }
+  ol.steps li { margin: .45rem 0; }
+  details { margin: 1rem 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card); padding: .7rem 1rem; }
+  summary { cursor: pointer; font-weight: 600; }
+  .hidden { display: none !important; }
+  footer { margin-top: 3rem; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Send your DDR5 SPD dump to the <code>spdr</code> project</h1>
+<p class="lede">
+  The <a href="https://github.com/The-Open-Memory-Initiative-OMI/spdr">spdr</a> project decodes
+  DDR5 memory modules. It can only get better by being tested against real modules, and the only
+  way to get those is from people who own them. This page does the fiddly part: it reads your dump,
+  removes the one piece of data that identifies your module, checks that the result is still a
+  faithful image, and hands you a file you can send.
+</p>
+
+<div class="note">
+  <p><strong>Nothing here leaves your computer.</strong> This page has no server and makes no
+  network request. Your file is read by the browser, in this tab, and never sent anywhere until
+  <em>you</em> send it to GitHub yourself.</p>
+</div>
+
+<h2>1 · Choose your dump</h2>
+<p>Whatever you have: the raw file, or the text a hex-dump tool printed. Drag it here, or click to pick it.</p>
+
+<div id="drop">
+  <h3>Drop the file here</h3>
+  <p>or use the button below</p>
+  <small>Raw binary, a hex dump, or a plain block of hex.</small>
+</div>
+<input type="file" id="file">
+
+<div id="result" class="hidden">
+  <h2>2 · What is in it</h2>
+  <table id="facts"></table>
+
+  <h2>3 · Take the file and the text</h2>
+  <p>
+    <button class="primary" id="download">Download the sanitised file</button>
+    <button id="copy">Copy the provenance text</button>
+    <span id="copied" class="hidden"></span>
+  </p>
+  <p class="mono" id="filename"></p>
+
+  <h2>4 · Send it to the project</h2>
+  <ol class="steps">
+    <li>Create a GitHub account if you do not have one. There is no other way to contribute to the project, because the file has to arrive in the repository.</li>
+    <li><a id="forklink" href="https://github.com/The-Open-Memory-Initiative-OMI/spdr/fork" target="_blank" rel="noopener">Fork the spdr repository</a> &mdash; the button on that page makes a copy under your own account.</li>
+    <li>Paste the address of your copy here, so the next link points at it: <input id="forkurl" type="text" placeholder="https://github.com/your-name/spdr" size="42"></li>
+    <li>Open <a id="uploadlink" href="#" target="_blank" rel="noopener">the upload page</a> in your copy and drag the file you downloaded into it. Type a branch name like <code>fixture/my-module</code> in the box that asks for the branch, and make sure the folder is <code>spdr/tests/fixtures</code>.</li>
+    <li>Commit it. GitHub then offers you a link to open a pull request. Say what the module is, and paste the provenance text in the description.</li>
+  </ol>
+  <div class="note">
+    <p>The maintainer will check the provenance and may reword the entry. That is expected: the
+    facts come from the file, the wording is theirs.</p>
+  </div>
+</div>
+
+<details>
+  <summary>How do I get a dump in the first place?</summary>
+  <p>This is the hard part, and it is a hardware problem rather than a software one: the SPD lives
+  on the SMBus of the memory module, and getting it out needs either a UEFI tool or administrator
+  rights on Linux.</p>
+  <p><strong>Linux.</strong> The kernel exposes the module's EEPROM as a file:</p>
+  <pre class="mono">dd if=/sys/bus/i2c/drivers/ee1004/0-0050/eeprom of=dump.bin</pre>
+  <p>The bus and device address differ from machine to machine; <code>i2cdetect -l</code> lists
+  them. The <code>ee1004</code> driver is the one that works for DDR5.</p>
+  <p><strong>Windows.</strong> A UEFI tool such as <a href="https://rwEverything.com" target="_blank" rel="noopener">RWEverything</a> can write the SMBus to a file from a UEFI shell. Booting into the UEFI shell and running it there is usually the easiest route.</p>
+  <p><strong>Either way.</strong> If you would rather not produce a binary file,
+  <code>hexdump -C dump.bin &gt; dump.txt</code> produces a text dump this page reads just as well.</p>
+</details>
+
+<footer>
+  <p>Made with <a href="https://github.com/danalec/spdr-collect">spdr-collect</a>, the intake tool for
+  the spdr project. The same checks, the same redaction and the same provenance text are available
+  as a command-line tool for people who prefer one.</p>
+</footer>
+
+</main>
+
+<script>
+"use strict";
+
+// The offsets below are the ones the tool uses. A test in the Rust crate checks that they still
+// match what the spdr library reads, so this page and the library cannot drift apart silently.
+const SERIAL_START = 517, SERIAL_END = 520;
+const PART_START = 521, PART_END = 550;
+const SERIAL_PLACEHOLDER = 0x99;
+const CRC_COVERED_END = 509;
+const CRC_STORED_LSB = 510, CRC_STORED_MSB = 511;
+const CRC_POLYNOMIAL = 0x1021;
+const EXPECTED_SIZE = 1024;
+
+// The encodings are the ones the spdr library decodes: byte 2 is a whole-byte
+// key, byte 3 carries the module type in its low nibble. The names are the
+// library's own, so the two cannot disagree about what a module is.
+const DEVICE_TYPES = { 0x0b: "DDR3 SDRAM", 0x0c: "DDR4 SDRAM", 0x12: "DDR5 SDRAM", 0x13: "LPDDR5" };
+const MODULE_TYPES = {
+  0x01: "RDIMM", 0x02: "UDIMM", 0x03: "SODIMM", 0x04: "LRDIMM", 0x05: "CUDIMM",
+  0x06: "CSOUDIMM", 0x07: "MRDIMM", 0x08: "CAMM2", 0x0a: "DDIMM", 0x0b: "solder down",
+};
+
+// The JEP-106 names the spdr library itself resolves. A code that is not here is reported as its
+// raw bank and code rather than guessed at.
+const JEP106 = [
+  [1, 0x2c, "Micron Technology"],
+  [1, 0x2d, "SK Hynix"],
+  [1, 0x4e, "Samsung"],
+  [1, 0x5a, "Winbond Electronic"],
+  [5, 0x6f, "Team Group Inc."],
+];
+
+// --- CRC-16/XMODEM, the checksum JEDEC uses across DDR5 SPD ------------------
+function crc16(bytes) {
+  let crc = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    crc ^= bytes[i] << 8;
+    for (let bit = 0; bit < 8; bit++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ CRC_POLYNOMIAL) : (crc << 1);
+      crc &= 0xffff;
+    }
+  }
+  return crc;
+}
+
+// --- SHA-256, so the provenance carries a hash without a server --------------
+const SHA_K = [
+  0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+  0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+  0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+  0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+  0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+  0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+  0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+  0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+
+function sha256Hex(bytes) {
+  const h = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const length = bytes.length;
+  const withPadding = new Uint8Array((((length + 8) >> 6) + 1) * 64);
+  withPadding.set(bytes);
+  withPadding[length] = 0x80;
+  const view = new DataView(withPadding.buffer);
+  view.setUint32(withPadding.length - 4, (length << 3) >>> 0, false);
+  view.setUint32(withPadding.length - 8, Math.floor(length / 536870912), false);
+  const w = new Uint32Array(64);
+  const rotr = (x, n) => ((x >>> n) | (x << (32 - n))) >>> 0;
+  for (let block = 0; block < withPadding.length; block += 64) {
+    for (let i = 0; i < 16; i++) w[i] = view.getUint32(block + i * 4, false);
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(w[i-15], 7) ^ rotr(w[i-15], 18) ^ (w[i-15] >>> 3);
+      const s1 = rotr(w[i-2], 17) ^ rotr(w[i-2], 19) ^ (w[i-2] >>> 10);
+      w[i] = (w[i-16] + s0 + w[i-7] + s1) >>> 0;
+    }
+    let [a, b, c, d, e, f, g, hh] = h;
+    for (let i = 0; i < 64; i++) {
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (hh + S1 + ch + SHA_K[i] + w[i]) >>> 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) >>> 0;
+      hh = g; g = f; f = e; e = (d + t1) >>> 0;
+      d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    h[0] = (h[0] + a) >>> 0; h[1] = (h[1] + b) >>> 0; h[2] = (h[2] + c) >>> 0; h[3] = (h[3] + d) >>> 0;
+    h[4] = (h[4] + e) >>> 0; h[5] = (h[5] + f) >>> 0; h[6] = (h[6] + g) >>> 0; h[7] = (h[7] + hh) >>> 0;
+  }
+  return h.map(v => v.toString(16).padStart(8, "0")).join("");
+}
+
+// --- Reading the dump --------------------------------------------------------
+function looksLikeHexDump(text) {
+  return text.split(/\r?\n/).some(line => /^\s*(0x)?[0-9a-fA-F]+[:\s]/.test(line));
+}
+
+function splitOffset(line) {
+  const trimmed = line.trimStart();
+  let start = 0;
+  if (/^0x/i.test(trimmed)) start = 2;
+  let end = start;
+  while (end < trimmed.length && /[0-9a-fA-F]/.test(trimmed[end])) end++;
+  if (end === start) return null;
+  const offset = parseInt(trimmed.slice(start, end), 16);
+  if (!Number.isFinite(offset)) return null;
+  let rest = trimmed.slice(end);
+  const hadColon = rest.startsWith(":");
+  if (hadColon) rest = rest.slice(1);
+  return { offset, rest: rest.trimStart(), hadColon };
+}
+
+function parseHexDump(text) {
+  const lines = [];
+  let sawColon = false, sawWord = false;
+  for (const line of text.split(/\r?\n/)) {
+    const split = splitOffset(line);
+    if (!split) continue;
+    let data = split.rest;
+    const bar = data.indexOf("|");
+    if (bar >= 0) data = data.slice(0, bar);
+    const tokens = [];
+    for (const token of data.split(/\s+/)) {
+      if (!/^[0-9a-fA-F]{2}$/.test(token) && !/^[0-9a-fA-F]{4}$/.test(token)) break;
+      if (token.length === 4) sawWord = true;
+      tokens.push(token);
+    }
+    if (!tokens.length) continue;
+    sawColon = sawColon || split.hadColon;
+    lines.push({ offset: split.offset, tokens });
+  }
+  if (!lines.length) return null;
+  // A colon means xxd or i2cdump, which write bytes in file order. Without one, 16-bit
+  // groups mean plain hexdump, which byte-swaps on a little-endian host.
+  const swapped = !sawColon && sawWord;
+  const out = [];
+  for (const line of lines) {
+    if (line.offset !== out.length) return null;
+    for (const token of line.tokens) {
+      if (token.length === 2) out.push(parseInt(token, 16));
+      else {
+        const a = parseInt(token.slice(0, 2), 16), b = parseInt(token.slice(2, 4), 16);
+        if (swapped) { out.push(b); out.push(a); } else { out.push(a); out.push(b); }
+      }
+    }
+  }
+  return { bytes: new Uint8Array(out), format: "hex dump" };
+}
+
+function parsePlainHex(text) {
+  const compact = text.replace(/\s+/g, "");
+  if (!compact.length || compact.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(compact)) return null;
+  const out = new Uint8Array(compact.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(compact.substr(i * 2, 2), 16);
+  return { bytes: out, format: "plain hex" };
+}
+
+function ingest(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = true;
+  for (let i = 0; i < bytes.length; i++) if (bytes[i] === 0) { binary = false; break; }
+  if (binary) return { bytes, format: "raw binary" };
+  let text;
+  try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+  catch (e) { return { bytes, format: "raw binary" }; }
+  if (looksLikeHexDump(text)) {
+    const dump = parseHexDump(text);
+    if (dump) return dump;
+  }
+  const plain = parsePlainHex(text);
+  if (plain) return plain;
+  return null;
+}
+
+// --- Reading the fields ------------------------------------------------------
+function jep106Name(bank, code) {
+  for (const entry of JEP106) {
+    if (entry[0] === bank && entry[1] === code) return entry[2];
+  }
+  return null;
+}
+
+function asciiTrimmed(bytes) {
+  let end = bytes.length;
+  while (end > 0 && (bytes[end - 1] === 0x20 || bytes[end - 1] === 0x00)) end--;
+  let out = "";
+  for (let i = 0; i < end; i++) out += String.fromCharCode(bytes[i]);
+  return out;
+}
+
+function hex8(value) {
+  return value.toString(16).toUpperCase().padStart(8, "0");
+}
+
+function bcd(byte) { return (byte >> 4) * 10 + (byte & 0x0f); }
+
+function readFields(bytes) {
+  const fields = {};
+  fields.moduleType = MODULE_TYPES[bytes[3] & 0x0f] || "unknown";
+  fields.deviceType = DEVICE_TYPES[bytes[2]] || "unknown";
+  fields.revision = `${bytes[1] >> 4}.${bytes[1] & 0x0f}`;
+
+  const bank = (bytes[512] & 0x7f) + 1;
+  const code = bytes[513] & 0x7f;
+  fields.manufacturerBank = bank;
+  fields.manufacturerCode = code;
+  fields.manufacturer = jep106Name(bank, code);
+  fields.year = 2000 + bcd(bytes[515]);
+  fields.week = bcd(bytes[516]);
+  fields.serial = hex8((bytes[517] << 24 | bytes[518] << 16 | bytes[519] << 8 | bytes[520]) >>> 0);
+  fields.partNumber = asciiTrimmed(bytes.slice(PART_START, PART_END + 1));
+  fields.revisionCode = bytes[551];
+
+  const tck = bytes[20] | (bytes[21] << 8);
+  fields.baseRate = tck ? Math.floor((Math.floor(2000000 / tck) + 50) / 100) * 100 : null;
+  return fields;
+}
+
+// --- The page ----------------------------------------------------------------
+const drop = document.getElementById("drop");
+const fileInput = document.getElementById("file");
+const result = document.getElementById("result");
+let sanitised = null, provenance = "", suggestedName = "";
+
+drop.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => { if (fileInput.files[0]) handle(fileInput.files[0]); });
+["dragenter", "dragover"].forEach(name => drop.addEventListener(name, event => {
+  event.preventDefault(); drop.classList.add("over");
+}));
+["dragleave", "drop"].forEach(name => drop.addEventListener(name, event => {
+  event.preventDefault(); drop.classList.remove("over");
+}));
+drop.addEventListener("drop", event => {
+  const file = event.dataTransfer.files[0];
+  if (file) handle(file);
+});
+
+document.getElementById("download").addEventListener("click", () => {
+  const blob = new Blob([sanitised], { type: "application/octet-stream" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = suggestedName;
+  link.click();
+  URL.revokeObjectURL(link.href);
+});
+
+document.getElementById("copy").addEventListener("click", async () => {
+  const button = document.getElementById("copy");
+  try {
+    await navigator.clipboard.writeText(provenance);
+    const note = document.getElementById("copied");
+    note.textContent = "copied";
+    note.classList.remove("hidden");
+    setTimeout(() => note.classList.add("hidden"), 2500);
+  } catch (e) {
+    const area = document.createElement("textarea");
+    area.value = provenance;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+  }
+});
+
+function row(label, value) {
+  return `<tr><th>${label}</th><td>${value}</td></tr>`;
+}
+
+function handle(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const parsed = ingest(reader.result);
+    if (!parsed) {
+      document.getElementById("facts").innerHTML =
+        row("Could not read it", "This does not look like a raw image, a hex dump, or a block of hex. " +
+        "If it is a text file, check that it is a hex dump.");
+      result.classList.remove("hidden");
+      return;
+    }
+
+    const bytes = parsed.bytes;
+    const originalSha = sha256Hex(bytes);
+
+    // Redact the serial number, and nothing else.
+    const out = bytes.slice();
+    if (out.length > SERIAL_END) {
+      for (let i = SERIAL_START; i <= SERIAL_END; i++) out[i] = SERIAL_PLACEHOLDER;
+    }
+
+    const computed = bytes.length > CRC_STORED_MSB ? crc16(bytes.slice(0, CRC_COVERED_END + 1)) : null;
+    const stored = bytes.length > CRC_STORED_MSB
+      ? (bytes[CRC_STORED_LSB] | (bytes[CRC_STORED_MSB] << 8)) : null;
+    const crcMatches = computed !== null && computed === stored;
+
+    const fields = readFields(bytes);
+
+    let verdict, tone;
+    if (computed === null) {
+      verdict = "too short"; tone = "bad";
+    } else if (!crcMatches) {
+      verdict = "does not match"; tone = "bad";
+    } else if (bytes.length !== EXPECTED_SIZE) {
+      verdict = "matches, but the image is short"; tone = "warn";
+    } else {
+      verdict = "matches"; tone = "ok";
+    }
+
+    const vendor = fields.manufacturer || `unknown (bank ${fields.manufacturerBank}, code ${fields.manufacturerCode})`;
+    const part = fields.partNumber || "no part number";
+
+    let html = "";
+    html += row("What it is", `${vendor} ${part} &middot; ${fields.moduleType} &middot; ${fields.deviceType}`);
+    html += row("Made", `${fields.year}-W${String(fields.week).padStart(2, "0")}`);
+    if (fields.baseRate) html += row("Base speed", `${fields.baseRate} MT/s`);
+    html += row("Size", `${bytes.length} bytes${bytes.length === EXPECTED_SIZE ? "" : ` (a DDR5 SPD is ${EXPECTED_SIZE})`}`);
+    html += row("Checksum", `<span class="verdict ${tone}">${verdict}</span>` +
+      (computed !== null ? ` &middot; computed <code>0x${computed.toString(16).toUpperCase().padStart(4, "0")}</code>, stored <code>0x${stored.toString(16).toUpperCase().padStart(4, "0")}</code>` : ""));
+    html += row("Read as", parsed.format);
+    html += row("Your file", `<code>${escapeHtml(file.name)}</code> &middot; sha256 <code>${originalSha}</code>`);
+    html += row("What is removed", "The module serial number, which identifies your module. Nothing else. The part number is kept, because it is public product data.");
+    if (tone === "bad") {
+      html += row("Before you send it", "The checksum does not match, so this file is probably truncated or was not read correctly. The project will decode it anyway, but it is worth getting a clean dump first.");
+    }
+    document.getElementById("facts").innerHTML = html;
+
+    sanitised = out;
+    const sanitisedSha = sha256Hex(out);
+    const serial = hex8((out[517] << 24 | out[518] << 16 | out[519] << 8 | out[520]) >>> 0);
+    suggestedName = suggestName(vendor, part, serial);
+
+    provenance = [
+      `### ${fields.manufacturer || "Unknown vendor"} ${part} · ${fields.moduleType}`,
+      "",
+      `- **Fixture** · \`spdr/tests/fixtures/${suggestedName}\` · ${out.length} bytes · sha256 \`${sanitisedSha}\``,
+      `- **Source** · \`${file.name}\` · ${parsed.format} · ${bytes.length} bytes · sha256 \`${originalSha}\``,
+      "- **Sanitised** · module serial number",
+      computed !== null
+        ? `- **Base CRC** · computed \`0x${computed.toString(16).toUpperCase().padStart(4, "0")}\` · stored \`0x${stored.toString(16).toUpperCase().padStart(4, "0")}\` · ${crcMatches ? "match" : "MISMATCH"}`
+        : "- **Base CRC** · not available: the image is too short",
+      `- **Module** · ${fields.moduleType} · ${fields.deviceType}${fields.baseRate ? ` · ${fields.baseRate} MT/s base` : ""}`,
+      `- **Manufacturer** · ${vendor} · ${fields.year}-W${String(fields.week).padStart(2, "0")}`,
+      `- **Part number** · ${part} · serial \`${serial}\` · revision 0x${fields.revisionCode.toString(16).toUpperCase().padStart(2, "0")}`,
+      "",
+      "Produced by the browser tool. The project's own decoder produces the full decode and lint report.",
+    ].join("\n");
+
+    document.getElementById("filename").textContent = suggestedName;
+    updateUploadLink();
+
+    result.classList.remove("hidden");
+    result.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// The upload page lives in the contributor's own fork of the upstream
+// repository, so the link follows whatever fork URL they paste in.
+function updateUploadLink() {
+  const input = document.getElementById("forkurl");
+  const fork = input.value.trim().replace(/\/+$/, "");
+  const link = document.getElementById("uploadlink");
+  if (fork) {
+    link.href = fork + "/upload/main/spdr/tests/fixtures";
+    link.textContent = "the upload page";
+  } else {
+    link.href = "#";
+    link.textContent = "the upload page (paste your fork above first)";
+  }
+}
+
+document.getElementById("forkurl").addEventListener("input", updateUploadLink);
+updateUploadLink();
+
+function suggestName(vendor, part, serial) {
+  const slug = text => {
+    let out = "";
+    let lastDash = false;
+    for (const ch of text.toLowerCase()) {
+      if (/[a-z0-9]/.test(ch)) { out += ch; lastDash = false; }
+      else if (!lastDash && out.length) { out += "-"; lastDash = true; }
+    }
+    return out.replace(/-+$/, "");
+  };
+  let stem = slug(vendor);
+  if (part && part !== "no part number") { stem += "-" + slug(part); }
+  if (serial) stem += "_" + serial;
+  return stem + ".spd";
+}
+
+function escapeHtml(text) {
+  return text.replace(/[&<>"']/g, ch => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[ch]));
+}
+</script>
+</body>
+</html>
