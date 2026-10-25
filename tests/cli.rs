@@ -1,9 +1,8 @@
 //! Integration tests for the `spdr-collect` binary.
 //!
-//! The tests run against the real fixture the `spdr` project keeps, so they
-//! check the tool against an image whose CRC and contents are already
-//! documented upstream. They skip, rather than fail, when that fixture is not
-//! next to this checkout.
+//! The tests run against a copy of the fixture the `spdr` project validates
+//! against, so they check the tool against an image whose CRC, contents and
+//! hash are already documented upstream.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -13,15 +12,11 @@ use sha2::{Digest, Sha256};
 const BINARY: &str = env!("CARGO_BIN_EXE_spdr-collect");
 
 /// The fixture the `spdr` project validates against.
-fn fixture() -> Option<PathBuf> {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("spdr")
-        .join("spdr")
+fn fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join("fixtures")
-        .join("teamgroup-ud5-6000_0104eef6.spd");
-    path.exists().then_some(path)
+        .join("teamgroup-ud5-6000_0104eef6.spd")
 }
 
 /// Run the tool.
@@ -48,10 +43,18 @@ fn sha256_file(path: &Path) -> String {
 }
 
 #[test]
+fn the_fixture_is_the_one_the_upstream_project_documents() {
+    let fixture = fixture();
+    assert_eq!(
+        sha256_file(&fixture),
+        "cecfa75eb704272ad5b135e77a534cc416aec55a8daea54823b5dbf6d7761c98",
+        "the fixture must be the upstream one, byte for byte"
+    );
+}
+
+#[test]
 fn check_reports_a_matching_crc_and_a_clean_lint() {
-    let Some(fixture) = fixture() else {
-        return;
-    };
+    let fixture = fixture();
     let output = run(&["check", fixture.to_str().expect("a path")]);
     let text = stdout(&output);
 
@@ -65,9 +68,7 @@ fn check_reports_a_matching_crc_and_a_clean_lint() {
 
 #[test]
 fn sanitize_touches_the_serial_and_nothing_else() {
-    let Some(fixture) = fixture() else {
-        return;
-    };
+    let fixture = fixture();
     let out = fixture.with_file_name("sanitised.spd");
     let output = run(&[
         "sanitize",
@@ -101,9 +102,7 @@ fn sanitize_touches_the_serial_and_nothing_else() {
 
 #[test]
 fn sanitize_leaves_the_crc_intact() {
-    let Some(fixture) = fixture() else {
-        return;
-    };
+    let fixture = fixture();
     let out = fixture.with_file_name("sanitised-crc.spd");
     let output = run(&[
         "sanitize",
@@ -122,9 +121,7 @@ fn sanitize_leaves_the_crc_intact() {
 
 #[test]
 fn the_source_hash_points_at_the_original_and_the_fixture_hash_at_the_output() {
-    let Some(fixture) = fixture() else {
-        return;
-    };
+    let fixture = fixture();
     let out = fixture.with_file_name("sanitised-hash.spd");
     let output = run(&[
         "sanitize",
@@ -148,9 +145,7 @@ fn the_source_hash_points_at_the_original_and_the_fixture_hash_at_the_output() {
 
 #[test]
 fn a_hex_dump_ingests_to_the_same_bytes() {
-    let Some(fixture) = fixture() else {
-        return;
-    };
+    let fixture = fixture();
     let bytes = std::fs::read(&fixture).expect("the fixture reads");
     let dump = fixture.with_file_name("dump-xxd.txt");
 
@@ -180,9 +175,7 @@ fn a_hex_dump_ingests_to_the_same_bytes() {
 
 #[test]
 fn a_plain_hex_string_ingests_to_the_same_bytes() {
-    let Some(fixture) = fixture() else {
-        return;
-    };
+    let fixture = fixture();
     let bytes = std::fs::read(&fixture).expect("the fixture reads");
     let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
     let dump = fixture.with_file_name("dump-plain.hex");
@@ -199,9 +192,7 @@ fn a_plain_hex_string_ingests_to_the_same_bytes() {
 
 #[test]
 fn a_short_image_reports_the_sections_it_could_not_decode() {
-    let Some(fixture) = fixture() else {
-        return;
-    };
+    let fixture = fixture();
     let bytes = std::fs::read(&fixture).expect("the fixture reads");
     let short = fixture.with_file_name("short.spd");
     std::fs::write(&short, &bytes[..100]).expect("the image writes");
@@ -239,9 +230,7 @@ fn text_that_is_not_hex_cannot_be_run() {
 
 #[test]
 fn the_json_report_carries_the_same_facts() {
-    let Some(fixture) = fixture() else {
-        return;
-    };
+    let fixture = fixture();
     let output = run(&["check", "--json", fixture.to_str().expect("a path")]);
     let report = stdout(&output);
     assert_eq!(output.status.code(), Some(0), "{report}");

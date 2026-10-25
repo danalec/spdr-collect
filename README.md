@@ -118,6 +118,17 @@ A CRC mismatch is reported, never blocking: it does not change the exit code,
 and it never stops the fixture from being written. The report says so in
 plain words.
 
+## Tests
+
+```sh
+cargo test
+```
+
+The tests run against a copy of the fixture the `spdr` project validates
+against, kept in `tests/fixtures/`, so they run in CI without the sibling
+checkout. Its SHA-256 is the value the upstream project already records, which
+is the independent check that the provenance hash this tool prints is right.
+
 ## Licence
 
 Apache-2.0, the same as the `spdr` project.
