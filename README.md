@@ -124,14 +124,20 @@ covering it.
 This tool does not read hardware. The SPD lives on the SMBus, and getting it
 out is a separate problem:
 
-- **Linux** · the kernel exposes it as an EEPROM file:
+- **Linux** · the SPD hub on a DDR5 module is bound to the `spd5118` driver,
+  which the kernel has carried since 6.11, and the EEPROM shows up as a file:
 
   ```sh
-  dd if=/sys/bus/i2c/drivers/ee1004/0-0050/eeprom of=dump.bin
+  dd if=/sys/bus/i2c/drivers/spd5118/0-0050/eeprom of=dump.bin
   ```
 
-  The bus and device address depend on the machine; `i2cdetect -l` lists
-  them. `decode-dimms -x` reads a hex dump of the same file.
+  The bus and device address differ from machine to machine; the address is
+  usually `0x50` for the first slot, and `ls /sys/bus/i2c/drivers/spd5118/`
+  lists what is there. On newer kernels the same data is also exposed as an
+  `nvmem` sibling of the `eeprom` file. `ee1004` is the older driver, for
+  DDR4. On a kernel older than 6.11 there is no DDR5 SPD support at all, and
+  the UEFI route below is the way. `decode-dimms` reads a hex dump of the same
+  file, and understands DDR5 in current `i2c-tools`.
 
 - **Windows** · an EFI tool such as RWEverything can write the SMBus to a
   file from a UEFI shell.

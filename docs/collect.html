@@ -175,10 +175,12 @@
   <p>This is the hard part, and it is a hardware problem rather than a software one: the SPD lives
   on the SMBus of the memory module, and getting it out needs either a UEFI tool or administrator
   rights on Linux.</p>
-  <p><strong>Linux.</strong> The kernel exposes the module's EEPROM as a file:</p>
-  <pre class="mono">dd if=/sys/bus/i2c/drivers/ee1004/0-0050/eeprom of=dump.bin</pre>
-  <p>The bus and device address differ from machine to machine; <code>i2cdetect -l</code> lists
-  them. The <code>ee1004</code> driver is the one that works for DDR5.</p>
+  <p><strong>Linux.</strong> The SPD hub on a DDR5 module is bound to the <code>spd5118</code> driver, which the kernel has carried since 6.11, and the EEPROM shows up as a file:</p>
+  <pre class="mono">dd if=/sys/bus/i2c/drivers/spd5118/0-0050/eeprom of=dump.bin</pre>
+  <p>The bus and device address differ from machine to machine; the address is usually
+  <code>0x50</code> for the first slot, and <code>ls /sys/bus/i2c/drivers/spd5118/</code>
+  lists what is there. <code>ee1004</code> is the older driver, for DDR4. On a kernel older than
+  6.11 there is no DDR5 SPD support at all, and the UEFI route below is the way.</p>
   <p><strong>Windows.</strong> A UEFI tool such as <a href="https://rwEverything.com" target="_blank" rel="noopener">RWEverything</a> can write the SMBus to a file from a UEFI shell. Booting into the UEFI shell and running it there is usually the easiest route.</p>
   <p><strong>Either way.</strong> If you would rather not produce a binary file,
   <code>hexdump -C dump.bin &gt; dump.txt</code> produces a text dump this page reads just as well.</p>
